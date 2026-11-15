@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pronoun Memory Game — Interactive Educational App</title>
+  <!-- Tailwind CSS for responsive layout and utility styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter for crisp readability & Fredoka for playful educational headings -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    /* Base typography and custom 3D card-flip animations */
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 48%, #115e59 100%);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    h1, h2, h3, .font-display {
+      font-family: 'Fredoka', sans-serif;
+    }
+
+    /* 3D Flip Card Container */
+    .flip-card {
+      perspective: 1000px;
+      cursor: pointer;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .flip-card.locked {
+      cursor: not-allowed;
+    }
+
+    .flip-card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transition: transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+      transform-style: preserve-3d;
+    }
+
+    .flip-card.is-flipped .flip-card-inner {
+      transform: rotateY(180deg);
+    }
+
+    .flip-card-front,
+    .flip-card-back {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+      border-radius: 1rem;
+      overflow: hidden;
+    }
+
+    /* Front face subtle hover lift when face-down */
+    .flip-card:not(.is-flipped):not(.locked):hover .flip-card-front {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 24px -6px rgba(56, 189, 248, 0.35);
+      border-color: #7dd3fc;
+    }
+
+    .flip-card-front {
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+
+    .flip-card-back {
+      transform: rotateY(180deg);
+    }
+
+    /* Matched card celebratory green glow */
+    .flip-card.is-matched .flip-card-back {
+      box-shadow: 0 0 0 3px #10b981, 0 10px 25px -4px rgba(16, 185, 129, 0.45);
+    }
+
+    /* Returned pair pulse animation (when Lose a Pair wildcard triggers) */
+    @keyframes returnShake {
+      0%, 100% { transform: scale(1); }
+      25% { transform: scale(1.06) rotate(-2deg); }
+      75% { transform: scale(1.06) rotate(2deg); }
+    }
+
+    .animate-return-pair {
+      animation: returnShake 0.55s ease-in-out;
+    }
+
+    /* Feedback banner pop animation */
+    @keyframes bannerPop {
+      0% { opacity: 0; transform: translateY(-8px) scale(0.96); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .animate-banner {
+      animation: bannerPop 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    /* Confetti particles for victory celebration */
+    .confetti-piece {
+      position: fixed;
+      width: 10px;
+      height: 14px;
+      top: -20px;
+      z-index: 60;
+      pointer-events: none;
+      border-radius: 2px;
+      animation: confettiFall linear forwards;
+    }
+
+    @keyframes confettiFall {
+      0% {
+        transform: translateY(0) rotate(0deg);
+        opacity: 1;
+      }
+      100% {
+        transform: translateY(105vh) rotate(720deg);
+        opacity: 0.85;
+      }
+    }
+  </style>
+</head>
+<body class="text-slate-100 antialiased selection:bg-teal-400 selection:text-slate-950">
+
+  <!-- Main Wrapper -->
+  <div class="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 flex flex-col gap-4 sm:gap-5">
+
+    <!-- Top Header & Navigation Bar -->
+    <header class="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4 sm:px-6 shadow-xl flex flex-col lg:flex-row items-center justify-between gap-4">
+      <!-- Brand / Title -->
+      <div class="flex items-center gap-3 text-center lg:text-left">
+        <div class="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-amber-400 via-orange-500 to-pink-500 flex items-center justify-center text-2xl shadow-lg shrink-0">
+          🧠
+        </div>
+        <div>
+          <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+            Pronoun Memory Game
+          </h1>
+          <p class="text-xs sm:text-sm text-teal-200 font-medium">
+            Personal • Possessive • Object Pronouns &amp; Wildcards
+          </p>
+        </div>
+      </div>
+
+      <!-- 3 Main Navigation Tabs + Sound Toggle -->
+      <div class="flex flex-wrap items-center justify-center gap-2">
+        <nav class="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 bg-slate-950/40 p-1.5 rounded-xl border border-white/10" role="tablist" aria-label="Game sections">
+          <button
+            id="tab-btn-game"
+            onclick="switchTab('game')"
+            class="tab-btn px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all bg-gradient-to-r from-teal-400 to-emerald-400 text-slate-950 shadow-md"
+            role="tab"
+            aria-selected="true"
+          >
+            🎮 Play Game (22 Cards)
+          </button>
+          <button
+            id="tab-btn-rules"
+            onclick="switchTab('rules')"
+            class="tab-btn px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-200 hover:text-white hover:bg-white/10 transition-all"
+            role="tab"
+            aria-selected="false"
+          >
+            📜 Game Rules (EN / ES)
+          </button>
+          <button
+            id="tab-btn-examples"
+            onclick="switchTab('examples')"
+            class="tab-btn px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-200 hover:text-white hover:bg-white/10 transition-all"
+            role="tab"
+            aria-selected="false"
+          >
+            💡 Grammar Examples
+          </button>
+        </nav>
+
+        <!-- Sound Effects Mute/Unmute Button -->
+        <button
+          id="sound-toggle-btn"
+          onclick="toggleSound()"
+          title="Toggle Sound Effects"
+          class="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white transition-all text-sm font-semibold"
+          aria-label="Toggle Sound Effects"
+        >
+          🔊
+        </button>
+      </div>
+    </header>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 1: PLAY GAME (22 CARDS)                                           -->
+    <!-- ===================================================================== -->
+    <main id="view-game" class="flex flex-col gap-4">
+
+      <!-- Control Bar & Live Scoreboard -->
+      <section class="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-3.5 sm:p-4 shadow-lg flex flex-col md:flex-row items-center justify-between gap-4">
+
+        <!-- Left: Restart Button -->
+        <button
+          onclick="initGame()"
+          class="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 font-extrabold text-sm shadow-md transition-all flex items-center gap-2"
+        >
+          🔀 Restart Game
+        </button>
+
+        <!-- Center: Simplified Scoreboard -->
+        <div class="flex items-center gap-4 px-6 py-2.5 rounded-xl border-2 border-teal-400 bg-teal-500/20 shadow-md">
+          <div class="text-3xl">🏆</div>
+          <div class="flex flex-col gap-0.5">
+            <div class="text-xs uppercase tracking-wider font-extrabold text-teal-200">Pairs Matched: <span id="score-display" class="text-base text-white">0</span> / 10</div>
+            <div class="text-sm font-bold text-white">Attempts: <span id="attempts-display" class="text-xl font-extrabold text-amber-400">Unlimited</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Live Feedback / Status Toast Banner -->
+      <div
+        id="feedback-banner"
+        role="status"
+        aria-live="polite"
+        class="rounded-2xl px-4 py-3 text-center font-bold text-sm sm:text-base shadow-lg border transition-all bg-slate-900/70 border-white/15 text-teal-100"
+      >
+        🧠 Memory games start hidden! Click any 2 cards to discover and remember matches.
+      </div>
+
+      <!-- 22-Card Game Grid -->
+      <section aria-label="Memory game board with 22 cards">
+        <div
+          id="cards-grid"
+          class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-3.5"
+        >
+          <!-- Cards are dynamically injected here by JavaScript -->
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 2: GAME RULES (BILINGUAL: ENGLISH / ESPAÑOL)                      -->
+    <!-- ===================================================================== -->
+    <section id="view-rules" class="hidden flex flex-col gap-5">
+      <div class="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-5 sm:p-8 shadow-xl">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/15 pb-4 mb-6">
+          <div>
+            <h2 class="text-2xl sm:text-3xl font-bold text-white">📜 How to Play / Reglas del Juego</h2>
+            <p class="text-sm text-teal-200 mt-1">Clear instructions in English and Spanish for classroom play.</p>
+          </div>
+          <!-- Language View Filter -->
+          <div class="inline-flex rounded-xl bg-slate-950/50 p-1 border border-white/10 self-start sm:self-auto">
+            <button onclick="setRulesLang('both')" id="rules-lang-both" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-teal-400 text-slate-950 transition-all">
+              EN + ES
+            </button>
+            <button onclick="setRulesLang('en')" id="rules-lang-en" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition-all">
+              English
+            </button>
+            <button onclick="setRulesLang('es')" id="rules-lang-es" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition-all">
+              Español
+            </button>
+          </div>
+        </div>
+
+        <!-- Two-Column Bilingual Cards -->
+        <div id="rules-columns" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- English Rules Column -->
+          <div id="rules-en-box" class="bg-slate-950/50 border border-white/10 rounded-2xl p-5 sm:p-6 flex flex-col gap-4">
+            <div class="flex items-center gap-2.5">
+              <span class="text-2xl">🇺🇸</span>
+              <h3 class="text-xl font-bold text-teal-300">Rules in English</h3>
+            </div>
+            <ol class="space-y-3.5 text-sm sm:text-base text-slate-200">
+              <li class="flex gap-3">
+                <span class="w-7 h-7 rounded-full bg-teal-500/25 border border-teal-400/50 text-teal-300 font-bold flex items-center justify-center shrink-0">1</span>
+                <div><strong class="text-white">Dynamic Attempts:</strong> <strong>Unlimited</strong> attempts until your 1st pair. Then, it resets to <strong>12</strong> attempts. From your 3rd pair onwards, it resets to <strong>5</strong>. If it reaches 0, Game Over!</div>
+              </li>
+              <li class="flex gap-3">
+                <span class="w-7 h-7 rounded-full bg-teal-500/25 border border-teal-400/50 text-teal-300 font-bold flex items-center justify-center shrink-0">2</span>
+                <div><strong class="text-white">3-Second Memorization:</strong> When you flip 2 cards, they stay face up for exactly 3 seconds before resolving. Memorize their positions!</div>
+              </li>
+              <li class="flex gap-3">
+                <span class="w-7 h-7 rounded-full bg-teal-500/25 border border-teal-400/50 text-teal-300 font-bold flex items-center justify-center shrink-0">3</span>
+                <div><strong class="text-white">Mismatch Penalty:</strong> If cards don't match, you lose 1 attempt (except in Unlimited phase).</div>
+              </li>
+              <li class="flex gap-3">
+                <span class="w-7 h-7 rounded-full bg-purple-500/25 border border-purple-400/50 text-purple-300 font-bold flex items-center justify-center shrink-0">4</span>
+                <div>
+                  <strong class="text-white">Wildcards (Extra Turn / Lose a Pair):</strong> They execute <em>immediately</em>!
+                  <ul class="mt-1.5 space-y-1.5 text-sm">
+                    <li class="bg-purple-500/15 border border-purple-400/30 rounded-lg px-3 py-1.5"><strong>Under 3 Pairs found:</strong> The wildcard triggers, then hides and shuffles the board!</li>
+                    <li class="bg-rose-500/15 border border-rose-400/30 rounded-lg px-3 py-1.5"><strong>3+ Pairs found:</strong> The wildcard triggers, but stays permanently face up (disabled).</li>
+                  </ul>
+                </div>
+              </li>
+              <li class="flex gap-3">
+                <span class="w-7 h-7 rounded-full bg-amber-500/25 border border-amber-400/50 text-amber-300 font-bold flex items-center justify-center shrink-0">5</span>
+                <div><strong class="text-white">How to Win:</strong> Find all 10 pairs without your attempts hitting 0!</div>
+              </li>
+            </ol>
+          </div>
+
+          <!-- Spanish Rules Column -->
+          <div id="rules-es-box" class="bg-slate-950/50 border border-white/10 rounded-2xl p-5 sm:p-6 flex flex-col gap-4">
+            <div class="flex items-center gap-2.5">
+              <span class="text-2xl">🇪🇸</span>
+              <h3 class="text-xl font-bold text-amber-300">Reglas en Español</h3>
+            </div>
+            <ol class="space-y-3.5 text-sm sm:text-base text-slate-200">
+              <li class="flex gap-3">
+                <span class="w-7 h-7 rounded-full bg-amber-500/25 border border-amber-400/50 text-amber-300 font-bold flex items-center justify-center shrink-0">1</span>
+                <div><strong class="text-white">Intentos Dinámicos:</strong> <strong>Ilimitados</strong> hasta tu 1er par. Luego se reinician a <strong>12</strong>. Desde tu 3er par en adelante, se limitan a <strong>5</strong>. ¡Si llega a 0, pierdes!</div>
+              </li>
+              <li class="flex gap-3">
+                <span class="w-7 h-7 rounded-full bg-amber-500/25 border border-amber-400/50 text-amber-300 font-bold flex items-center justify-center shrink-0">2</span>
+                <div><strong class="text-white">3 Segundos para Memorizar:</strong> Al voltear 2 cartas, permanecerán descubiertas 3 segundos antes de resolverse para que recuerdes dónde estaban.</div>
+              </li>
+              <li class="flex gap-3">
+                <span class="w-7 h-7 rounded-full bg-amber-500/25 border border-amber-400/50 text-amber-300 font-bold flex items-center justify-center shrink-0">3</span>
+                <div><strong class="text-white">Penalización:</strong> Si las cartas no coinciden, pierdes 1 intento (excepto en fase ilimitada).</div>
+              </li>
+              <li class="flex gap-3">
+                <span class="w-7 h-7 rounded-full bg-purple-500/25 border border-purple-400/50 text-purple-300 font-bold flex items-center justify-center shrink-0">4</span>
+                <div>
+                  <strong class="text-white">Comodines (Turno Extra / Pierdes Pareja):</strong> ¡Se ejecutan al instante!
+                  <ul class="mt-1.5 space-y-1.5 text-sm">
+                    <li class="bg-purple-500/15 border border-purple-400/30 rounded-lg px-3 py-1.5"><strong>Con menos de 3 pares:</strong> Se ejecutan, se ocultan y ¡barajan el tablero!</li>
+                    <li class="bg-rose-500/15 border border-rose-400/30 rounded-lg px-3 py-1.5"><strong>Con 3 o más pares:</strong> Se ejecutan y permanecen descubiertos sin molestar más.</li>
+                  </ul>
+                </div>
+              </li>
+              <li class="flex gap-3">
+                <span class="w-7 h-7 rounded-full bg-teal-500/25 border border-teal-400/50 text-teal-300 font-bold flex items-center justify-center shrink-0">5</span>
+                <div><strong class="text-white">Cómo Ganar:</strong> ¡Encuentra las 10 parejas sin que tus intentos lleguen a 0!</div>
+              </li>
+            </ol>
+          </div>
+        </div>
+
+        <!-- Quick CTA back to game -->
+        <div class="mt-6 flex justify-center">
+          <button
+            onclick="switchTab('game')"
+            class="px-6 py-3 rounded-xl bg-gradient-to-r from-teal-400 to-emerald-400 hover:from-teal-300 hover:to-emerald-300 text-slate-950 font-extrabold text-sm sm:text-base shadow-lg transition-all"
+          >
+            🎮 Ready! Go to the Game Board →
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 3: GRAMMAR EXAMPLES & PRONOUN GUIDE                               -->
+    <!-- ===================================================================== -->
+    <section id="view-examples" class="hidden flex flex-col gap-5">
+      <div class="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-5 sm:p-8 shadow-xl flex flex-col gap-6">
+        <div class="border-b border-white/15 pb-4">
+          <h2 class="text-2xl sm:text-3xl font-bold text-white">💡 Grammar Examples &amp; Pronoun Types</h2>
+          <p class="text-sm text-teal-200 mt-1">
+            Review how Personal, Possessive, and Object pronouns work in everyday situations before playing.
+          </p>
+        </div>
+
+        <!-- 3 Required Examples with Color Highlighting & Explanations -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
+          <!-- Example 1: Possessive (her) -->
+          <article class="bg-white text-slate-900 rounded-2xl p-5 shadow-lg border-t-8 border-emerald-500 flex flex-col justify-between gap-4">
+            <div>
+              <span class="inline-block text-xs font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 mb-3">
+                🟢 Possessive Example
+              </span>
+              <p class="text-xl sm:text-2xl font-extrabold text-slate-900 leading-snug">
+                “This is <span class="text-emerald-600 underline decoration-emerald-400 decoration-4">her</span> bag.”
+              </p>
+            </div>
+            <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 text-sm text-slate-700">
+              <strong class="text-emerald-800">Explanation:</strong> The pronoun <strong class="text-emerald-700">her</strong> indicates possession (it shows that the bag belongs to a female person).
+            </div>
+          </article>
+
+          <!-- Example 2: Object (him) -->
+          <article class="bg-white text-slate-900 rounded-2xl p-5 shadow-lg border-t-8 border-orange-500 flex flex-col justify-between gap-4">
+            <div>
+              <span class="inline-block text-xs font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full bg-orange-100 text-orange-800 mb-3">
+                🟠 Object Example
+              </span>
+              <p class="text-xl sm:text-2xl font-extrabold text-slate-900 leading-snug">
+                “I like <span class="text-orange-600 underline decoration-orange-400 decoration-4">him</span>.”
+              </p>
+            </div>
+            <div class="bg-orange-50 border border-orange-200 rounded-xl p-3.5 text-sm text-slate-700">
+              <strong class="text-orange-800">Explanation:</strong> The pronoun <strong class="text-orange-700">him</strong> is an object pronoun (it receives the action of the verb <em>“like”</em>).
+            </div>
+          </article>
+
+          <!-- Example 3: Possessive (mine) -->
+          <article class="bg-white text-slate-900 rounded-2xl p-5 shadow-lg border-t-8 border-emerald-500 flex flex-col justify-between gap-4">
+            <div>
+              <span class="inline-block text-xs font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 mb-3">
+                🟢 Possessive Example
+              </span>
+              <p class="text-xl sm:text-2xl font-extrabold text-slate-900 leading-snug">
+                “That is <span class="text-emerald-600 underline decoration-emerald-400 decoration-4">mine</span>.”
+              </p>
+            </div>
+            <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 text-sm text-slate-700">
+              <strong class="text-emerald-800">Explanation:</strong> The pronoun <strong class="text-emerald-700">mine</strong> replaces the object (e.g., <em>my bag</em>) and shows possession.
+            </div>
+          </article>
+        </div>
+
+        <!-- Visual Legend of the 3 Pronoun Categories in the Game -->
+        <div class="bg-slate-950/50 border border-white/10 rounded-2xl p-5">
+          <h3 class="text-lg font-bold text-white mb-3">🎨 Color Code Guide Used in the 22 Cards</h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div class="bg-blue-500/15 border border-blue-400/35 rounded-xl p-4">
+              <div class="font-extrabold text-blue-300 text-base mb-1">🔵 Personal Pronouns</div>
+              <p class="text-slate-300 mb-2">Replace the person or thing doing the action (subject).</p>
+              <div class="flex flex-wrap gap-1.5">
+                <span class="px-2 py-0.5 rounded bg-blue-500/30 text-blue-100 font-bold">I</span>
+                <span class="px-2 py-0.5 rounded bg-blue-500/30 text-blue-100 font-bold">you</span>
+                <span class="px-2 py-0.5 rounded bg-blue-500/30 text-blue-100 font-bold">he</span>
+                <span class="px-2 py-0.5 rounded bg-blue-500/30 text-blue-100 font-bold">she</span>
+                <span class="px-2 py-0.5 rounded bg-blue-500/30 text-blue-100 font-bold">they</span>
+              </div>
+            </div>
+
+            <div class="bg-emerald-500/15 border border-emerald-400/35 rounded-xl p-4">
+              <div class="font-extrabold text-emerald-300 text-base mb-1">🟢 Possessive Pronouns</div>
+              <p class="text-slate-300 mb-2">Show who owns or possesses an object.</p>
+              <div class="flex flex-wrap gap-1.5">
+                <span class="px-2 py-0.5 rounded bg-emerald-500/30 text-emerald-100 font-bold">my</span>
+                <span class="px-2 py-0.5 rounded bg-emerald-500/30 text-emerald-100 font-bold">your</span>
+                <span class="px-2 py-0.5 rounded bg-emerald-500/30 text-emerald-100 font-bold">his</span>
+                <span class="px-2 py-0.5 rounded bg-emerald-500/30 text-emerald-100 font-bold">hers</span>
+                <span class="px-2 py-0.5 rounded bg-emerald-500/30 text-emerald-100 font-bold">mine</span>
+                <span class="px-2 py-0.5 rounded bg-emerald-500/30 text-emerald-100 font-bold">ours</span>
+              </div>
+            </div>
+
+            <div class="bg-orange-500/15 border border-orange-400/35 rounded-xl p-4">
+              <div class="font-extrabold text-orange-300 text-base mb-1">🟠 Object Pronouns</div>
+              <p class="text-slate-300 mb-2">Receive the action of the verb or follow a preposition.</p>
+              <div class="flex flex-wrap gap-1.5">
+                <span class="px-2 py-0.5 rounded bg-orange-500/30 text-orange-100 font-bold">me</span>
+                <span class="px-2 py-0.5 rounded bg-orange-500/30 text-orange-100 font-bold">him</span>
+                <span class="px-2 py-0.5 rounded bg-orange-500/30 text-orange-100 font-bold">her</span>
+                <span class="px-2 py-0.5 rounded bg-orange-500/30 text-orange-100 font-bold">us</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-center">
+          <button
+            onclick="switchTab('game')"
+            class="px-6 py-3 rounded-xl bg-gradient-to-r from-teal-400 to-emerald-400 hover:from-teal-300 hover:to-emerald-300 text-slate-950 font-extrabold text-sm sm:text-base shadow-lg transition-all"
+          >
+            🎮 Practice Now in the Memory Game →
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- VICTORY CELEBRATION MODAL                                             -->
+  <!-- ===================================================================== -->
+  <div
+    id="victory-modal"
+    class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="victory-title"
+  >
+    <div class="bg-white text-slate-900 rounded-3xl max-w-md w-full p-6 sm:p-8 text-center shadow-2xl border-4 border-amber-400 animate-banner">
+      <div class="text-5xl sm:text-6xl mb-3">🏆</div>
+      <h2 id="victory-title" class="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-2">
+        Congratulations!
+      </h2>
+      <p id="victory-subtitle" class="text-sm sm:text-base text-slate-600 mb-5">
+        You matched all 10 pronoun pairs!
+      </p>
+
+      <div class="flex flex-col sm:flex-row gap-3 justify-center">
+        <button
+          onclick="closeVictoryAndRestart()"
+          class="w-full py-3 px-5 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-white font-extrabold text-base shadow-lg transition-all"
+        >
+          🔄 Play Again (Shuffle Deck)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- GAME OVER MODAL                                                       -->
+  <!-- ===================================================================== -->
+  <div
+    id="gameover-modal"
+    class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4"
+    role="dialog"
+    aria-modal="true"
+  >
+    <div class="bg-slate-900 text-white rounded-3xl max-w-md w-full p-6 sm:p-8 text-center shadow-2xl border-4 border-rose-500 animate-banner">
+      <div class="text-5xl sm:text-6xl mb-3">💀</div>
+      <h2 class="text-2xl sm:text-3xl font-extrabold text-rose-400 mb-2">
+        Game Over!
+      </h2>
+      <p class="text-sm sm:text-base text-slate-300 mb-5">
+        You ran out of attempts. Try again!
+      </p>
+
+      <button
+        onclick="initGame()"
+        class="w-full py-3 px-5 rounded-xl bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-400 hover:to-orange-400 text-white font-extrabold text-base shadow-lg transition-all"
+      >
+        🔄 Restart Game
+      </button>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- GAME LOGIC & SOUND ENGINE                                             -->
+  <!-- ===================================================================== -->
+  <script>
+    /**
+     * 1. DECK DATA DEFINITION (10 Pairs = 20 Cards + 2 Wildcards = 22 Cards Total)
+     * Each pair has a `sentence` card and a matching `pronoun` card sharing the same `pairId`.
+     */
+    const PAIR_DEFINITIONS = [
+      // Personal Pronouns (Blue)
+      { pairId: 1, category: 'personal', pronoun: 'SHE', pronounLabel: 'Personal Pronoun', icon: '📚', sentenceParts: ['', 'She', ' studies math.'], grammarNote: "'She' is a personal pronoun." },
+      { pairId: 2, category: 'personal', pronoun: 'THEY', pronounLabel: 'Personal Pronoun', icon: '🎮', sentenceParts: ['', 'They', ' play games.'], grammarNote: "'They' is a plural personal pronoun." },
+      { pairId: 3, category: 'personal', pronoun: 'HE', pronounLabel: 'Personal Pronoun', icon: '🌳', sentenceParts: ['', 'He', ' walks to the park.'], grammarNote: "'He' is a personal pronoun." },
+
+      // Possessive Pronouns (Green)
+      { pairId: 4, category: 'possessive', pronoun: 'MINE', pronounLabel: 'Possessive Pronoun', icon: '🎒', sentenceParts: ['This bag is ', 'mine', '.'], grammarNote: "'Mine' shows ownership." },
+      { pairId: 5, category: 'possessive', pronoun: 'HERS', pronounLabel: 'Possessive Pronoun', icon: '📓', sentenceParts: ['That notebook is ', 'hers', '.'], grammarNote: "'Hers' shows ownership." },
+      { pairId: 6, category: 'possessive', pronoun: 'OURS', pronounLabel: 'Possessive Pronoun', icon: '🏠', sentenceParts: ['The house is ', 'ours', '.'], grammarNote: "'Ours' shows shared ownership." },
+      { pairId: 7, category: 'possessive', pronoun: 'MY', pronounLabel: 'Possessive Pronoun', icon: '🍎', sentenceParts: ['I forgot ', 'my', ' lunch.'], grammarNote: "'My' is a possessive pronoun/determiner." },
+
+      // Object Pronouns (Orange)
+      { pairId: 8, category: 'object', pronoun: 'ME', pronounLabel: 'Object Pronoun', icon: '🤝', sentenceParts: ['She helps ', 'me', '.'], grammarNote: "'Me' receives the action." },
+      { pairId: 9, category: 'object', pronoun: 'HIM', pronounLabel: 'Object Pronoun', icon: '🎂', sentenceParts: ['I invited ', 'him', '.'], grammarNote: "'Him' receives the action." },
+      { pairId: 10, category: 'object', pronoun: 'US', pronounLabel: 'Object Pronoun', icon: '⏰', sentenceParts: ['Join ', 'us', ' today.'], grammarNote: "'Us' receives the action." }
+    ];
+
+    const WILDCARD_DEFINITIONS = [
+      {
+        wildcardType: 'extra_turn',
+        icon: '⭐',
+        title: 'EXTRA TURN!',
+        subtitle: 'Wildcard: Flip two more cards!'
+      },
+      {
+        wildcardType: 'lose_pair',
+        icon: '💥',
+        title: 'LOSE A PAIR!',
+        subtitle: 'Wildcard: Return one of your pairs!'
+      }
+    ];
+
+    /**
+     * 2. APPLICATION STATE
+     */
+    let deck = [];
+    let flippedIndices = [];
+    let isLocked = false;
+    let earnedPairs = [];
+    let attempts = 'Unlimited';
+    let soundEnabled = true;
+    let audioCtx = null;
+    let activeTimers = [];
+
+    /**
+     * 3. WEB AUDIO SYNTHESIZER (Zero external audio URLs needed)
+     */
+    function playSound(type) {
+      if (!soundEnabled) return;
+      try {
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (type === 'flip') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(420, now);
+          osc.frequency.exponentialRampToValueAtTime(620, now + 0.09);
+          gain.gain.setValueAtTime(0.12, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+          osc.start(now);
+          osc.stop(now + 0.09);
+        } else if (type === 'match') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(523.25, now);       // C5
+          osc.frequency.setValueAtTime(659.25, now + 0.09); // E5
+          osc.frequency.setValueAtTime(783.99, now + 0.18); // G5
+          gain.gain.setValueAtTime(0.18, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.36);
+          osc.start(now);
+          osc.stop(now + 0.36);
+        } else if (type === 'mismatch') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(240, now);
+          osc.frequency.linearRampToValueAtTime(175, now + 0.22);
+          gain.gain.setValueAtTime(0.1, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+          osc.start(now);
+          osc.stop(now + 0.24);
+        } else if (type === 'wildcard_good') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(587.33, now);
+          osc.frequency.setValueAtTime(783.99, now + 0.1);
+          osc.frequency.setValueAtTime(1046.5, now + 0.2);
+          gain.gain.setValueAtTime(0.18, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+          osc.start(now);
+          osc.stop(now + 0.42);
+        } else if (type === 'wildcard_bad') {
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(310, now);
+          osc.frequency.setValueAtTime(220, now + 0.14);
+          osc.frequency.setValueAtTime(150, now + 0.28);
+          gain.gain.setValueAtTime(0.11, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+          osc.start(now);
+          osc.stop(now + 0.45);
+        } else if (type === 'game_over') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(150, now);
+          osc.frequency.exponentialRampToValueAtTime(40, now + 1);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 1);
+          osc.start(now);
+          osc.stop(now + 1);
+        } else if (type === 'victory') {
+          const notes = [523.25, 659.25, 783.99, 1046.5];
+          notes.forEach((freq, idx) => {
+            const o = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            o.type = 'triangle';
+            o.connect(g);
+            g.connect(audioCtx.destination);
+            o.frequency.setValueAtTime(freq, now + idx * 0.12);
+            g.gain.setValueAtTime(0.18, now + idx * 0.12);
+            g.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.35);
+            o.start(now + idx * 0.12);
+            o.stop(now + idx * 0.12 + 0.35);
+          });
+        }
+      } catch (e) {
+        // Safely ignore audio context errors on restricted devices
+      }
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      document.getElementById('sound-toggle-btn').textContent = soundEnabled ? '🔊' : '🔇';
+    }
+
+    /**
+     * 4. UTILITY: CLEAR PENDING TIMERS & FISHER-YATES SHUFFLE
+     */
+    function scheduleTimer(fn, delay) {
+      const id = setTimeout(fn, delay);
+      activeTimers.push(id);
+      return id;
+    }
+
+    function clearAllTimers() {
+      activeTimers.forEach(clearTimeout);
+      activeTimers = [];
+    }
+
+    function shuffleArray(array) {
+      const arr = [...array];
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function shuffleUnflippedCards() {
+      const unflippedIndices = [];
+      const unflippedCards = [];
+      deck.forEach((card, idx) => {
+        if (!card.isMatched && !card.isUsedWildcard && !card.isFlipped) {
+          unflippedIndices.push(idx);
+          unflippedCards.push(card);
+        }
+      });
+      const shuffledCards = shuffleArray(unflippedCards);
+      unflippedIndices.forEach((deckIdx, i) => {
+        deck[deckIdx] = shuffledCards[i];
+      });
+    }
+
+    /**
+     * 5. BUILD & INITIALIZE THE 22-CARD DECK
+     */
+    function buildDeck() {
+      const rawCards = [];
+
+      // Add 10 sentence cards + 10 pronoun cards
+      PAIR_DEFINITIONS.forEach((pair) => {
+        rawCards.push({
+          uid: `pair-${pair.pairId}-sentence`,
+          pairId: pair.pairId,
+          type: 'sentence',
+          category: pair.category,
+          icon: pair.icon,
+          sentenceParts: pair.sentenceParts,
+          pronoun: pair.pronoun,
+          grammarNote: pair.grammarNote,
+          isFlipped: false,
+          isMatched: false,
+          matchedBy: null,
+          isUsedWildcard: false,
+          returningPulse: false
+        });
+
+        rawCards.push({
+          uid: `pair-${pair.pairId}-pronoun`,
+          pairId: pair.pairId,
+          type: 'pronoun',
+          category: pair.category,
+          icon: pair.icon,
+          pronoun: pair.pronoun,
+          pronounLabel: pair.pronounLabel,
+          grammarNote: pair.grammarNote,
+          isFlipped: false,
+          isMatched: false,
+          matchedBy: null,
+          isUsedWildcard: false,
+          returningPulse: false
+        });
+      });
+
+      // Add 2 Wildcards
+      WILDCARD_DEFINITIONS.forEach((wc, idx) => {
+        rawCards.push({
+          uid: `wildcard-${idx}`,
+          pairId: null,
+          type: 'wildcard',
+          category: 'wildcard',
+          wildcardType: wc.wildcardType,
+          icon: wc.icon,
+          title: wc.title,
+          subtitle: wc.subtitle,
+          isFlipped: false,
+          isMatched: false,
+          matchedBy: null,
+          isUsedWildcard: false,
+          returningPulse: false
+        });
+      });
+
+      return shuffleArray(rawCards);
+    }
+
+    function initGame() {
+      clearAllTimers();
+      deck = buildDeck();
+      flippedIndices = [];
+      isLocked = false;
+      earnedPairs = [];
+      attempts = 'Unlimited';
+
+      document.getElementById('victory-modal').classList.add('hidden');
+      document.getElementById('gameover-modal').classList.add('hidden');
+      updateScoreboardUI();
+      setFeedbackBanner(
+        "🧠 Memory games start hidden! Click any 2 cards to discover and remember matches.",
+        'neutral'
+      );
+      renderBoard();
+    }
+
+    /**
+     * 6. UI HELPERS: FEEDBACK BANNER & SCOREBOARD
+     */
+    function setFeedbackBanner(message, tone = 'neutral') {
+      const banner = document.getElementById('feedback-banner');
+      const toneStyles = {
+        neutral: 'bg-slate-900/75 border-white/15 text-teal-100',
+        match: 'bg-emerald-500/25 border-emerald-400 text-emerald-100 shadow-emerald-500/20',
+        mismatch: 'bg-rose-500/25 border-rose-400 text-rose-100 shadow-rose-500/20',
+        wildcard_good: 'bg-purple-500/30 border-amber-300 text-amber-100 shadow-purple-500/25',
+        wildcard_bad: 'bg-red-600/30 border-rose-300 text-rose-100 shadow-red-500/25'
+      };
+
+      banner.className = `rounded-2xl px-4 py-3 text-center font-bold text-sm sm:text-base shadow-lg border transition-all animate-banner ${toneStyles[tone] || toneStyles.neutral}`;
+      banner.textContent = message;
+    }
+
+    function updateScoreboardUI() {
+      document.getElementById('score-display').textContent = earnedPairs.length;
+      document.getElementById('attempts-display').textContent = attempts;
+    }
+
+    /**
+     * 7. RENDER THE 22 CARDS IN THE GRID
+     */
+    function getCategoryStyling(category) {
+      // Force all categories to use slate/gray to eliminate visual color cheating
+      return {
+        badgeBg: 'bg-slate-200 text-slate-600 border-slate-300',
+        badgeText: category.charAt(0).toUpperCase() + category.slice(1),
+        highlightText: 'text-slate-900 font-black',
+        bigText: 'text-slate-900',
+        borderAccent: 'border-slate-300'
+      };
+    }
+
+    function renderBoard() {
+      const grid = document.getElementById('cards-grid');
+      grid.innerHTML = '';
+
+      deck.forEach((card, index) => {
+        const cardNumber = index + 1;
+        const isDisabled = isLocked || card.isFlipped || card.isMatched || card.isUsedWildcard;
+
+        const wrapper = document.createElement('div');
+        wrapper.className = [
+          'flip-card h-36 sm:h-40 md:h-44',
+          card.isFlipped ? 'is-flipped' : '',
+          card.isMatched ? 'is-matched' : '',
+          isDisabled ? 'locked' : '',
+          card.returningPulse ? 'animate-return-pair' : ''
+        ].join(' ');
+
+        wrapper.setAttribute('role', 'button');
+        wrapper.setAttribute('tabindex', isDisabled ? '-1' : '0');
+        wrapper.setAttribute('aria-label', card.isFlipped ? `Card ${cardNumber} revealed` : `Card ${cardNumber} face down`);
+
+        wrapper.addEventListener('click', () => handleCardClick(index));
+        wrapper.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleCardClick(index);
+          }
+        });
+
+        // FRONT FACE (Numbered 1-22 with Star/Question Emblem)
+        const frontHTML = `
+          <div class="flip-card-front bg-gradient-to-br from-indigo-600 via-blue-700 to-teal-700 border-2 border-indigo-300/40 shadow-lg flex flex-col items-center justify-between p-2.5 text-white">
+            <div class="w-full flex items-center justify-between text-[11px] font-bold text-indigo-200/90">
+              <span>CARD</span>
+              <span>★</span>
+            </div>
+            <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white/15 border border-white/25 backdrop-blur-sm flex items-center justify-center shadow-inner">
+              <span class="font-display text-2xl sm:text-3xl font-extrabold text-white drop-shadow">${cardNumber}</span>
+            </div>
+            <div class="text-[10px] sm:text-[11px] font-semibold tracking-wider uppercase text-teal-200/90">
+              Click to Flip
+            </div>
+          </div>
+        `;
+
+        // BACK FACE (Sentence, Pronoun, or Wildcard)
+        let backHTML = '';
+
+        if (card.type === 'wildcard') {
+          const isExtraTurn = card.wildcardType === 'extra_turn';
+          const bgGradient = isExtraTurn
+            ? 'from-purple-700 via-indigo-700 to-amber-500 border-amber-300'
+            : 'from-rose-700 via-red-700 to-orange-600 border-rose-300';
+
+          backHTML = `
+            <div class="flip-card-back bg-gradient-to-br ${bgGradient} border-2 shadow-xl p-2.5 flex flex-col items-center justify-between text-center text-white">
+              <div class="w-full flex items-center justify-between">
+                <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-black/35 text-amber-200 uppercase">
+                  Used
+                </span>
+                <span class="text-[11px] font-bold text-white/80">#${cardNumber}</span>
+              </div>
+              <div class="flex flex-col items-center gap-1 my-auto">
+                <span class="text-2xl sm:text-3xl drop-shadow">${card.icon}</span>
+                <div class="font-display text-sm sm:text-base font-extrabold leading-tight tracking-wide">
+                  ${card.title}
+                </div>
+                <p class="text-[11px] sm:text-xs font-medium text-white/95 leading-snug">
+                  ${card.subtitle}
+                </p>
+              </div>
+              <div class="w-full h-1 rounded-full bg-white/30"></div>
+            </div>
+          `;
+        } else if (card.type === 'sentence') {
+          const style = getCategoryStyling(card.category);
+          const matchedTag = card.isMatched
+            ? `<span class="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-500 text-white">✓ MATCHED</span>`
+            : `<span class="text-[10px] font-bold text-slate-400">#${cardNumber}</span>`;
+
+          backHTML = `
+            <div class="flip-card-back bg-white border-2 ${style.borderAccent} shadow-xl p-2.5 sm:p-3 flex flex-col justify-between text-slate-800">
+              <div class="w-full flex items-center justify-between gap-1">
+                <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${style.badgeBg}">
+                  ${style.badgeText}
+                </span>
+                ${matchedTag}
+              </div>
+
+              <div class="flex flex-col items-center text-center gap-1 my-auto">
+                <span class="text-xl sm:text-2xl leading-none">${card.icon}</span>
+                <p class="text-xs sm:text-[13px] font-bold text-slate-800 leading-snug">
+                  “${card.sentenceParts[0]}<span class="${style.highlightText} font-extrabold">${card.sentenceParts[1]}</span>${card.sentenceParts[2]}”
+                </p>
+              </div>
+
+              <div class="text-[10px] text-center font-semibold text-slate-400 uppercase tracking-wider">
+                Sentence Card
+              </div>
+            </div>
+          `;
+        } else {
+          // Pronoun Card
+          const style = getCategoryStyling(card.category);
+          const matchedTag = card.isMatched
+            ? `<span class="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-500 text-white">✓ MATCHED</span>`
+            : `<span class="text-[10px] font-bold text-slate-400">#${cardNumber}</span>`;
+
+          backHTML = `
+            <div class="flip-card-back bg-slate-50 border-2 ${style.borderAccent} shadow-xl p-2.5 sm:p-3 flex flex-col justify-between text-slate-800">
+              <div class="w-full flex items-center justify-between gap-1">
+                <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${style.badgeBg}">
+                  ${style.badgeText}
+                </span>
+                ${matchedTag}
+              </div>
+
+              <div class="flex flex-col items-center justify-center text-center my-auto">
+                <div class="font-display text-2xl sm:text-3xl font-extrabold tracking-wide ${style.bigText}">
+                  ${card.pronoun}
+                </div>
+                <span class="mt-1 text-[11px] font-bold text-slate-600 bg-slate-200/80 px-2.5 py-0.5 rounded-full">
+                  ${card.pronounLabel}
+                </span>
+              </div>
+
+              <div class="text-[10px] text-center font-semibold text-slate-400 uppercase tracking-wider">
+                Pronoun Card
+              </div>
+            </div>
+          `;
+        }
+
+        wrapper.innerHTML = `<div class="flip-card-inner">${frontHTML}${backHTML}</div>`;
+        grid.appendChild(wrapper);
+      });
+    }
+
+    /**
+     * 8. CORE GAME ENGINE: STRICT 2-CARD TURN, MATCHING & WILDCARDS
+     */
+    function handleCardClick(index) {
+      const card = deck[index];
+
+      // Prevent clicking if locked, already flipped, matched, or used wildcard
+      if (isLocked || !card || card.isFlipped || card.isMatched || card.isUsedWildcard) {
+        return;
+      }
+
+      // Flip the clicked card face-up
+      card.isFlipped = true;
+      playSound('flip');
+
+      // CASE A: WILDCARD FLIPPED
+      if (card.type === 'wildcard') {
+        isLocked = true;
+
+        // If 1 regular card was already open in this turn, flip it back face-down immediately
+        if (flippedIndices.length > 0) {
+          deck[flippedIndices[0]].isFlipped = false;
+          flippedIndices = [];
+        }
+
+        renderBoard();
+        setFeedbackBanner(`🚨 Wildcard! Effect executing in 3 seconds...`, 'neutral');
+
+        // 3 second wait before applying the effect
+        scheduleTimer(() => {
+          // Apply wildcard effect
+          if (card.wildcardType === 'extra_turn') {
+            playSound('wildcard_good');
+            if (attempts !== 'Unlimited') attempts++;
+            setFeedbackBanner(`⭐ EXTRA TURN! Attempts +1`, 'wildcard_good');
+          } else if (card.wildcardType === 'lose_pair') {
+            playSound('wildcard_bad');
+            if (earnedPairs.length > 0) {
+              const randomIdx = Math.floor(Math.random() * earnedPairs.length);
+              const returnedPairId = earnedPairs.splice(randomIdx, 1)[0];
+              deck.forEach((c) => {
+                if (c.pairId === returnedPairId) {
+                  c.isMatched = false;
+                  c.matchedBy = null;
+                  c.isFlipped = false;
+                  c.returningPulse = true;
+                }
+              });
+              setFeedbackBanner(`💥 LOSE A PAIR! One matched pair flipped back.`, 'wildcard_bad');
+            } else {
+              setFeedbackBanner(`💥 LOSE A PAIR! (Safe, 0 pairs to lose)`, 'wildcard_bad');
+            }
+          }
+
+          updateScoreboardUI();
+          renderBoard();
+
+          // Wait 2.5 seconds to let player read/see the effect result, then evaluate reshuffle vs stay
+          scheduleTimer(() => {
+            deck.forEach((c) => (c.returningPulse = false));
+
+            if (earnedPairs.length < 3) {
+              card.isFlipped = false;
+              shuffleUnflippedCards();
+              setFeedbackBanner(`🔀 Cards shuffled. The wildcard is hidden again!`, 'neutral');
+            } else {
+              card.isUsedWildcard = true;
+              setFeedbackBanner(`✅ Wildcard is now permanently disabled.`, 'neutral');
+            }
+
+            scheduleTimer(() => {
+              isLocked = false;
+              updateScoreboardUI();
+              renderBoard();
+            }, 1500);
+
+          }, 2500);
+        }, 3000);
+        return;
+      }
+
+      // CASE B: REGULAR CARD (SENTENCE OR PRONOUN)
+      flippedIndices.push(index);
+      renderBoard();
+
+      if (flippedIndices.length === 1) {
+        setFeedbackBanner(`🃏 Pick 1 more card to make a match!`, 'neutral');
+        return;
+      }
+
+      // Exactly 2 regular cards are now open -> Lock board and wait EXACTLY 3 SECONDS!
+      if (flippedIndices.length === 2) {
+        isLocked = true;
+        renderBoard();
+
+        const [idx1, idx2] = flippedIndices;
+        const card1 = deck[idx1];
+        const card2 = deck[idx2];
+        const isMatch = card1.pairId === card2.pairId && card1.type !== card2.type;
+
+        setFeedbackBanner(`⏱️ Memorize them! Resolving in 3 seconds...`, 'neutral');
+
+        scheduleTimer(() => {
+          if (isMatch) {
+            playSound('match');
+            card1.isMatched = true;
+            card2.isMatched = true;
+            earnedPairs.push(card1.pairId);
+            flippedIndices = [];
+
+            if (earnedPairs.length === 1 || earnedPairs.length === 2) {
+              attempts = 12;
+              setFeedbackBanner(`🎉 Match! Limits ON: 12 attempts left.`, 'match');
+            } else if (earnedPairs.length >= 3) {
+              attempts = 5;
+              setFeedbackBanner(`🎉 Match! Limits tightened: 5 attempts left.`, 'match');
+            }
+
+            updateScoreboardUI();
+            renderBoard();
+
+            if (earnedPairs.length === PAIR_DEFINITIONS.length) {
+              scheduleTimer(() => {
+                showVictoryModal();
+              }, 850);
+            } else {
+              scheduleTimer(() => {
+                isLocked = false;
+                setFeedbackBanner(`🧠 Keep going! Find the next match.`, 'neutral');
+                renderBoard();
+              }, 1500);
+            }
+          } else {
+            // Mismatch Logic
+            if (attempts !== 'Unlimited') {
+              attempts--;
+            }
+            
+            if (attempts === 0) {
+              playSound('game_over');
+              updateScoreboardUI();
+              setFeedbackBanner(`💀 Game Over! You ran out of attempts.`, 'mismatch');
+              document.getElementById('gameover-modal').classList.remove('hidden');
+              return; 
+            }
+
+            playSound('mismatch');
+            setFeedbackBanner(`❌ No match! They will flip back now.`, 'mismatch');
+
+            scheduleTimer(() => {
+              card1.isFlipped = false;
+              card2.isFlipped = false;
+              flippedIndices = [];
+              updateScoreboardUI();
+              setFeedbackBanner(`🧠 Remember their positions!`, 'neutral');
+              isLocked = false;
+              renderBoard();
+            }, 1000);
+          }
+        }, 3000); // STRICT 3000ms (3 seconds) WAIT for memorization
+      }
+    }
+
+    function advanceTurnAfterWildcard() {
+      updateScoreboardUI();
+      setFeedbackBanner(
+        `🧠 Remember where they are! Click any 2 cards to find a match.`,
+        'neutral'
+      );
+      isLocked = false;
+      renderBoard();
+    }
+
+    /**
+     * 9. VICTORY MODAL & CONFETTI CELEBRATION
+     */
+    function showVictoryModal() {
+      playSound('victory');
+      launchConfetti();
+      document.getElementById('victory-modal').classList.remove('hidden');
+    }
+
+    function closeVictoryAndRestart() {
+      initGame();
+    }
+
+    function launchConfetti() {
+      const colors = ['#34d399', '#fbbf24', '#60a5fa', '#f472b6', '#a78bfa', '#fb923c'];
+      for (let i = 0; i < 55; i++) {
+        const piece = document.createElement('div');
+        piece.className = 'confetti-piece';
+        piece.style.left = `${Math.random() * 100}vw`;
+        piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        piece.style.animationDuration = `${2 + Math.random() * 2}s`;
+        piece.style.animationDelay = `${Math.random() * 0.4}s`;
+        document.body.appendChild(piece);
+        setTimeout(() => piece.remove(), 4500);
+      }
+    }
+
+    /**
+     * 10. TOP TAB NAVIGATION & BILINGUAL RULES FILTER
+     */
+    function switchTab(tabName) {
+      const views = ['game', 'rules', 'examples'];
+      views.forEach((v) => {
+        const viewEl = document.getElementById(`view-${v}`);
+        const btnEl = document.getElementById(`tab-btn-${v}`);
+        if (v === tabName) {
+          viewEl.classList.remove('hidden');
+          btnEl.className = 'tab-btn px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all bg-gradient-to-r from-teal-400 to-emerald-400 text-slate-950 shadow-md';
+          btnEl.setAttribute('aria-selected', 'true');
+        } else {
+          viewEl.classList.add('hidden');
+          btnEl.className = 'tab-btn px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-200 hover:text-white hover:bg-white/10 transition-all';
+          btnEl.setAttribute('aria-selected', 'false');
+        }
+      });
+    }
+
+    function setRulesLang(lang) {
+      const enBox = document.getElementById('rules-en-box');
+      const esBox = document.getElementById('rules-es-box');
+      const cols = document.getElementById('rules-columns');
+
+      ['both', 'en', 'es'].forEach((id) => {
+        const btn = document.getElementById(`rules-lang-${id}`);
+        if (id === lang) {
+          btn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-teal-400 text-slate-950 transition-all';
+        } else {
+          btn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition-all';
+        }
+      });
+
+      if (lang === 'both') {
+        enBox.classList.remove('hidden');
+        esBox.classList.remove('hidden');
+        cols.className = 'grid grid-cols-1 lg:grid-cols-2 gap-6';
+      } else if (lang === 'en') {
+        enBox.classList.remove('hidden');
+        esBox.classList.add('hidden');
+        cols.className = 'grid grid-cols-1 max-w-3xl mx-auto gap-6';
+      } else {
+        enBox.classList.add('hidden');
+        esBox.classList.remove('hidden');
+        cols.className = 'grid grid-cols-1 max-w-3xl mx-auto gap-6';
+      }
+    }
+
+    // Start game on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      initGame();
+    });
+  </script>
+</body>
+</html>
